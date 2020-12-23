@@ -1,0 +1,621 @@
+---
+title: "Investigation of the 2019 Canadian Election"
+author: 
+- "Yixin Liang(1005549998)"  
+- "Code and data are available at: https://github.com/YixinLiang/STA304" 
+date: "12/22/2020"
+output:
+    bookdown::pdf_document2
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+
+```{r, include=FALSE}
+library(tidyverse)
+library(knitr)
+library(visdat)
+library(skimr)
+library(ggpubr)
+library(car)
+# Data load in
+# Survey Data: The Canadian Election Study (CES)
+# devtools::install_github("hodgettsp/cesR", force = TRUE)
+library(cesR)
+get_ces("ces2019_web")
+
+# Census Data: 2017 General Social Survey (GSS)
+census_data <- read_csv("gss.csv")
+```
+
+\newpage
+# Abstract
+The election is a significant political event for a country, which should be emphasized since the governing political party influences its future development and policies in the following four years. In this study, logistic regression model and post-stratification analysis are applied to the census data and survey data from the Canadian Election Study and General Social Survey. This study analyzes six predictors that would impact the voting rate: sex, province, income, age, education, whether the family has children. Based on the model, Liberals have a higher probability of winning the 2019 Canadian Election from both popular voting rate and electoral voting rate aspects. 
+
+# Key Words
+Post-stratification, Logistic Regression, Canadian Election, Liberal Party, Conservative Party
+
+# Introduction
+
+With the development of technology, this is an era of information explosion. The importance of data is not the numbers but the underlying information it carries. Statistical analysis is crucial for explaining variations and making the prediction. In a highly informative society, statistical analysis is currently widely used in elections. Election predictions are essential to candidates and the general public. Candidates can analyze voters in different regions to plan more effective election arrangements. They can also design the election campaigns based on the analyzed voter preferences to obtain more votes to increase their winning rate. The statistical analysis is not limited to the prediction of results but also includes studying past polls, which can help achieve more future analysis improvements.
+
+Logistic regression (LR) continues to be one of the most widely used methods in data mining in general and binary data classification in particular (Maalouf, 2011). Post-stratification is widely recognized as an effective method for obtaining more accurate estimates of population quantities in the context of survey sampling (Little, 1993). In this study, logistic regression and post-stratification analysis are used to estimate the 2019 Canadian Federal Election, assuming all residents voted. Individual-level data contains personal opinions on the election, and the census data is used to make predictions.
+
+In the 2019 Canadian election, the Liberals and Conservatives are still the leading competitors. Canada's current applied election system is called "first past the post". Basically, in each electoral district, the candidate with the highest number of votes wins a seat in the House of Commons and represents that district as a Member of Parliament (Canadian Election, 2020). Notably, the absolute majority is not required under the "first past the post" process. The leader of the party that won most seats becomes Prime Minister.
+
+Overall, this study uses two datasets to investigate the election result for the 2019 Canadian election. In the methodology section, the data source and the model used for conducting the analysis are introduced. The result section will demonstrate tables, graphs and associated outcomes. In the discussion section, the results, criticism, and references for this study will be presented.
+
+\newpage
+# Methodology
+## Data 
+
+### Survey Data:
+
+The survey data is obtained from the Canadian Election Study (CES), a large-scale online survey conducted during the Canadian federal election period. In this study, 'ces2019_web' is selected from the 'cesR' package that contains 37822 observations, which focuses on the Canadian Election in 2019. The non-sampling procedure used is the volunteer sampling. This dataset provides thorough and comprehensive information that contains respondents' attitudes to different political parties and includes the demographic variables. Selected demographic variables are used to separate the population into groups to apply the post-stratification method.
+
+The **target population** includes all residents in Canada. The **frame population** is those who visit the website that posts the online survey. The **sample population** is people who answer the survey. 
+
+### Census Data:
+
+The census data is collected from the General Social Survey (GSS) on the family in 2017, conducted through telephone interviews. This dataset contains 20602 observations after cleaning^[Code for data cleaning is from Professor Samantha-Jo Caetano], focusing on non-institutionalized persons who are at least 15-year-old and are from 10 provinces in Canada. The sampling procedure used is a stratified sampling that performs a simple random sampling without replacement within each stratum. Two types of variables are included in the dataset, core content and classification variables. Core content variables focus on social issues and classification variables can be used for separating population groups. Additionally, it faces the non-response problem due to its survey method.
+
+The **target population** includes all non-institutionalized persons who are 15 years of age and older and live in 10 provinces of Canada. The **frame population** is the list of telephone numbers created in 2013 by Statistics Canada and the Address Register. The **sample population** is people who take the survey through phone calls.
+
+### Data Cleaning:
+
+The variables in census data and survey data should match each other to conduct statistical analysis ad prediction. Therefore, data are reorganized according to six explanatory variables in both survey data and census data: education, income, age, gender, province, number of children in the family. In the survey data, one more variable is selected: people's vote choices. All the missing values are removed before data cleaning and modeling.  
+
+### Dependent Variables:
+
+Respondents' vote choice is used as the dependent variable in this study to apply the logistic model. Based on the original variable, two new variables are created, representing individuals' vote choice for Liberals and Conservatives, respectively. 
+
+### Independent Variables:
+
+- Education:
+
+In the census data, individuals' education levels are distributed into seven groups. In the survey data, it is divided into eleven groups, expressing by the numbers. In this study, education levels are reorganized into four groups, which are "Primary Education", "Secondary Education", "Post-secondary Education" and "Post-graduation Education". 
+
+\newpage
+- Household Income:
+
+In the census data, the household income is separated into six income ranges. However, in the survey data, it is expressed as numbers. Notably, the maximum household income is 6.75e+60, which may be an outlier. Therefore, this study only focuses on the observations with less than 10000000 income to reduce the response error. Also, the household income is rearranged into three groups in both datasets. The "Higher income", "Medium Income" and "Lower Income" represent the household income that ranges from 0 to 49999, 50000 to 99999 and higher than 1000000 respectively. 
+
+- Age:
+
+In both datasets, age is shown as numbers. Concentrated on this study's objective, observations that are younger than 18 years old are removed because they do not have voting rights (Elections New Brunswick, 2014). Additionally, observations are distributed into three age groups: "Youth", "Adult" and "Senior". This division uses 25 and 65 as the thresholds, based on the age grouping standard posted by Statistical Canada (Government of Canada, 2017).
+
+- Gender:
+
+In this study, gender is classified into two groups, female and male. To match the variables, responses with "others" in the survey data are removed. 
+
+- Province:
+
+The census data only focuses on ten central provinces in Canada. However, 13 different regions are targeted in the survey data. Respondents currently living in Northwest Territories, Nunavut, and Yukon are removed to match the census data. Removing observations may not have a significant influence because these provinces only account for about 0.1% of the total results, respectively. 
+
+- Children:
+
+This variable represents whether the respondents have children. In the census data, the corresponding variable, which measures how many children the respondents have, is reorganized into the binary variable during the data cleaning process. 
+
+### Cleaned Raw Dataset:
+
+The cleaned raw survey data includes 21496 observations and eight variables. The cleaned raw census data has 19824 observations and six variables. The variables are categorical or binary. There is no missing value after cleaning the data, which is eligible for the following analysis and statistical modeling. The visualization of the cleaned data sets is shown by **Figure 1 (Cleaned Raw Survey data)** and **Figure 2 (Cleaned Raw Census data)** in Appendix 7.1 and Appendix 7.2.
+
+### Strength and Weakness for data:
+
+- Strength: Data set used in the study provides more comprehensive demographic variables, which helps conduct post-stratification and make a better prediction. Also, most questions in the questionnaires give the respondents a range of answers, which decreases misunderstanding problems. 
+
+- Weakness: Data collected in data sets are through the online survey and telephone survey, respectively. Therefore, the data used in the study may have non-response problems. Also, the questionnaires contain too many questions, which may lead to some incorrect and unreliable responses.
+
+
+```{r, include=FALSE}
+# Survey Data: variables selection
+survey_raw <- ces2019_web %>% 
+  select(education = cps19_education, income = cps19_income_number, age = cps19_age,
+         gender = cps19_gender, province = cps19_province, vote = cps19_votechoice, children = cps19_children) 
+
+# Census Data: variables selection
+census_raw <- census_data %>%
+  select(age, sex, province, education, income = income_family, children = total_children)
+
+# Check NA
+# sapply(survey_raw, function(x) sum(is.na(x)))
+# sapply(census_raw, function(x) sum(is.na(x)))
+
+# Check variables
+# unique(survey_raw$vote)
+```
+
+
+```{r,include=FALSE}
+# Census Data Cleaning Process
+
+# Clean Education
+census_raw1 <- census_raw %>% mutate(education=case_when(
+    education == "Less than high school diploma or its equivalent" ~ "Primary Education",
+    education == "High school diploma or a high school equivalency certificate" ~ "Secondary Education", 
+    education %in% c("Trade certificate or diploma",
+                     "College, CEGEP or other non-university certificate or di...",
+                     "University certificate or diploma below the bachelor's level",
+                     "Bachelor's degree (e.g. B.A., B.Sc., LL.B.)") ~ "Post-secondary Education",
+    education == "University certificate, diploma or degree above the bach..." ~ "Post-graduation Education"))
+
+# Omit NA
+census_raw2 <- na.omit(census_raw1)
+
+# Clean Income
+census_raw2 <- census_raw2 %>% mutate(income_factor=case_when(
+  income %in% c("$25,000 to $49,999", "Less than $25,000") ~ "Lower income", 
+  income %in% c("$50,000 to $74,999", "$75,000 to $99,999") ~ "Medium income", 
+  income %in% c("$100,000 to $ 124,999", "$125,000 and more") ~ "Higher income")) 
+
+# Clean Age
+# delete age below 18 years old
+census_raw2 <- census_raw2 %>% filter(age >= 18)
+census_raw2$age_factor[census_raw2$age < 25] <- "Youth"
+census_raw2$age_factor[census_raw2$age >= 25 & 
+                             census_raw2$age < 65] <- "Adults"
+census_raw2$age_factor[census_raw2$age >= 65] <- "Senior"
+
+# Clean Gender
+# contains male and female
+
+# Clean Province
+# "Quebec", "Manitoba", "Ontario", "Alberta", "Nova Scotia", "British Columbia", "Saskatchewan", "Prince Edward Island", "New Brunswick", "Newfoundland and Labrador"
+
+# Clean Children
+# 1: have children
+# 0: no children
+census_raw2$children[census_raw2$children != 0] <- 1
+census_raw2$children[census_raw2$children == 0] <- 0
+```
+
+
+```{r,include=FALSE}
+# Survey Data Cleaning Process
+
+# Clean Education
+# Remove observations: not have to say about education 
+survey_raw1 <- survey_raw %>% filter(education != 12) %>%
+  mutate(education=case_when(
+  education %in% c(1,2,3) ~ "Primary Education",
+  education %in% c(4,5) ~ "Secondary Education",
+  education %in% c(6,7,8,9) ~ "Post-secondary Education",
+  education %in% c(10,11) ~ "Post-graduation Education"))
+
+# Omit NA
+survey_raw2 <- na.omit(survey_raw1)
+
+# Clean Income
+survey_raw2 <- survey_raw2 %>% filter(income <= 10000000)
+survey_raw2$income_factor[survey_raw2$income < 50000] <- "Lower income"
+survey_raw2$income_factor[survey_raw2$income >= 50000 & 
+                             survey_raw2$income < 100000] <- "Medium income"
+survey_raw2$income_factor[survey_raw2$income >= 100000] <- "Higher income"
+
+# Clean Age
+survey_raw2 <- survey_raw2 %>% filter(age >= 18)
+survey_raw2$age_factor[survey_raw2$age < 25] <- "Youth"
+survey_raw2$age_factor[survey_raw2$age >= 25 & 
+                             survey_raw2$age < 65] <- "Adults"
+survey_raw2$age_factor[survey_raw2$age >= 65] <- "Senior"
+
+# Clean Gender 
+# Remove others
+survey_raw2 <- survey_raw2 %>% filter(gender != 3) %>%
+  mutate(sex = case_when(gender == 1 ~ "Male", gender == 2 ~ "Female"))
+
+# Clean province
+# Remove 3 provinces not included in census
+survey_raw2 <- survey_raw2 %>% 
+  filter(province != 19 & province != 21 & province != 26) %>% 
+  mutate(province=case_when(
+    province == 14 ~ "Alberta",
+    province == 15 ~ "British Columbia",
+    province == 16 ~ "Manitoba",
+    province == 17 ~ "New Brunswick",
+    province == 18 ~ "Newfoundland and Labrador",
+    province == 20 ~ "Nova Scotia",
+    province == 22 ~ "Ontario",
+    province == 23 ~ "Prince Edward Island",
+    province == 24 ~ "Quebec",
+    province == 25 ~ "Saskatchewan"))
+
+# Clean Children
+# Remove others
+# 1: have children
+# 0: no children
+survey_raw2 <- survey_raw2 %>% filter(children != 3)
+survey_raw2$children[survey_raw2$children == 2] <- 0
+survey_raw2$children[survey_raw2$children == 1] <- 1 
+ 
+# Clean Vote
+# Vote factor for Liberals
+survey_raw2$vote_factor_L[survey_raw2$vote != 1] <- 0
+survey_raw2$vote_factor_L[survey_raw2$vote == 1] <- 1
+# Vote factor for Conservatives
+survey_raw2$vote_factor_C[survey_raw2$vote != 2] <- 0
+survey_raw2$vote_factor_C[survey_raw2$vote == 2] <- 1
+```
+
+```{r, include=FALSE}
+# Cleaned Census Data:
+clean_census_data <- census_raw2 %>% select(sex, province, education, income_factor, 
+                                            age_factor, children) %>%
+  count(sex, province, education, income_factor, age_factor, children)
+# Cleaned Survey Data:
+clean_survey_data <- survey_raw2 %>% select(sex, province, education, 
+                                            income_factor, age_factor, vote_factor_L, 
+                                            vote_factor_C, children)
+```
+
+
+\newpage
+
+## Model
+
+### Model Introduction:
+
+This study investigates the 2019 Canadian Election results based on the Canadian Election Study and General Social Survey. The first step is modeling two binary response variables: people's vote for Liberals and Conservatives. The model is constructed using logistic regression in R. Logistic regression model is helpful to calculate the probabilities of binary variables. Secondly, the post-stratification method is involved. The model, generated based on the survey data, is used to calculate the possibility for each post-stratification cell that people will vote for Liberals or Conservatives.
+
+### Final Model:
+
+
+```{r, include=FALSE}
+# Model for Liberal Party
+model_L <- glm(vote_factor_L ~ sex+province + income_factor + age_factor + education + children, 
+               data = clean_survey_data, family= "binomial")
+summary(model_L)
+```
+
+
+```{r, include=FALSE}
+# BIC for mode_L
+step(model_L, direction = "backward", k=log(length(clean_survey_data$vote_factor_L)))
+```
+
+
+```{r, include=FALSE}
+# Model for Conservative Party
+model_C <- glm(vote_factor_C ~ sex+province + income_factor + age_factor + education + children, 
+               data = clean_survey_data, family= "binomial")
+summary(model_C)
+```
+
+
+```{r, include=FALSE}
+# BIC for Model_C
+step(model_C, direction = "backward", k=log(length(clean_survey_data$vote_factor_C)))
+```
+
+
+The following mathematical notation and equation is the logistic regression model generating by R with six predictors, *sex*, *province*, *income*, *age*, *education* and *children*.
+
+$$
+\log\frac{p_i}{1-p_i} = {\beta}_{0} + {\beta}_{sex}X_{sex} + {\beta}_{province}X_{province} + 
+{\beta}_{income}X_{income} + {\beta}_{age}X_{age} + {\beta}_{education}X_{education} + {\beta}_{children}X_{children}
+$$
+
+$p_i$: the probability that an individual votes for Liberals or Conservatives in the 2019 Canadian Election
+
+${\beta}_{0}$: the intercept of the model; represents the log odds of an adult female who lives in Alberta, earns higher income, has post-graduation education and does not have any children. 
+
+${\beta}_{sex}$: the slope for sex; represent the difference of preference between males and females.
+
+$X_{sex}$: = 1 if the respondent is male.  
+
+${\beta}_{province}$: the slope for province; represent the difference of preference between people lived in Alberta and other 9 provinces in Canada
+
+$X_{province}$: = 1 if the respondent lives in the provinces except for Alberta.
+
+${\beta}_{income}$: the slope for income level; represent the difference of preference between people who earn higher income and other 2 income range.
+
+$X_{income}$: = 1 if the respondent falls in a income range that is not higher than 100000.
+
+${\beta}_{age}$: the slope for age groups; represent the difference of preference between people who is an adult and others who are senior and youth. 
+
+$X_{age}$: = 1 if the respondent falls in an age range other than 25 - 64.
+
+${\beta}_{education}$: the slope for educational level; represent the difference of preference between people who have post-graduation education and other 3 educational levels. 
+
+$X_{education}$: = 1 if the respondents' educational level is lower than the post-graduation.
+
+${\beta}_{children}$: the slope for fertility status; represent the difference of preference between people who do not have children and those who have children. 
+
+$X_{children}$: = 1 if the respondent have at least one children.
+
+\newpage
+### Model Discussion:
+
+Given the logistic model above, with the help of post-stratification analysis, it can effectively predict the possibility that Liberals or Conservatives wins the election. However, before calculating the probability, there is some discussion associated with the logistic model. 
+
+In the fitted model for Liberals, six independent variables are included. Notably, *sex* is not statistically significant because its P-value is greater than the significant level, 0.05. After applying BIC^[Bayesian Information Criterion, a criteria to select model. Lower BIC indicates a better model.] to assess the variable selection, *sex* is removed from the final model. However, when constructing the Conservatives' logistic model, *sex* is statistically significant and is selected by the BIC criterion. Therefore, *sex* is kept in the final model for Liberals because it makes the study more consistent and helps further comparisons between Liberals and Conservatives. Additionally, some external references confirmed that sex identity actually influences individuals' vote preference (Hatemi et al., 2020). Therefore, the final logistic model still includes six variables.
+
+### Post-stratification:
+
+Post-stratification is a method that divides the entire census data into demographic cells based on the selected variables. Ideally, the number of cells equals all the potential combinations of the chosen variables unless no observations exist for the particular cell. 
+
+Sex, province, income, age, education, and whether the family has children are used to form the post-stratification cells for further analysis. The census is divided into 1084 demographic cells. The dependent variable, vote rate, is estimated within each cell. The population-level estimate is calculated by weighting each cell according to the relative proportion of the population. Post-stratification is useful since it can efficiently reduce the bias resulting from non-probability sampling.
+
+In Canada, different provinces may have their unique culture, history and political preference. As a country with a high immigration rate, different regions may attract various immigrants and residents, leading to a specific tendentious election choice. Also, there is a significant ‘genderation’ gap among both gender and age groups based on the data posted by Ipsos (Breen, 2019). Also, individuals' income, educational level and whether they have children may lead to different reactions and preferences to the political parties' potential policies. Therefore, these six variables are selected to divide the census data for making further predictions.
+
+
+### Model Diagnostics:
+
+- Influential Observations
+
+The influential points will significantly affect the fitted model; therefore, diagnostics is necessary. Cook's distance is used in the study to check the influential points. According to the criteria, points with a cook's distance that is greater than 0.5 should draw attention (Cook, 1977). Referring to the **Figure 3 (Cook's Distance Plot for Two Models)** in Appendix 7.3, there are no points with a value greater than 0.5 in the cook's distance plots for both Liberals and Conservatives. 
+
+- Multicollinearity
+
+The multicollinearity is checked by using the Variance Inflation Factor. The multicollinearity problem reduces the statistical analysis's efficiency, which may even cause the coefficients to switch signs. Referring to **Table 3 (Multicollinearity Check for Liberals)** and **Table 4 (Multicollinearity Check for Conservatives)** in the Appendix 7.4 and 7.5, based on the calculated VIF for each predictor, they are around 1 and do not meet the VIF cut off. Therefore, there is no multicollinearity problem associated with the final model.
+
+\newpage
+### Electoral Vote:
+
+Based on the Canadian Election process, the popular vote rate is a reference. The electoral vote rate, represented by the number of seats obtained in the House of Commons, is the final determination for the governing party. A party may win the popular rate but loses the electoral rate and thus fails in the election. Therefore, this study will calculate both popular rate and electoral rate. The electoral rate for each party is calculated by dividing the number of seats that are expected to win over total seats in Canada. The expected winning seats is calculated by multiplying the provincial vote rate by the seats for those provinces. This can help to predict the total seats that each party can obtain. Notably, three provinces, Northwest Territories, Nunavut, and Yukon, are not included in the study, which each has one seat. 
+
+
+# Results:
+
+## Popular Vote Prediction
+
+Referring to **Table 1 (Popular Vote Rate)**, Liberals expects to have a 30.18% popular support rate and Conservatives expects to have a 28.57% popular support rate. 
+
+```{r, include=FALSE}
+# Prediction for Liberals
+clean_census_data$estimate_L <-
+  model_L %>%
+  predict(newdata = clean_census_data, type = "response")
+
+census_prediction1 <- clean_census_data %>%
+  mutate(L_predict_prop = estimate_L*n) %>%
+  summarize(L_predict = sum(L_predict_prop)/sum(n))
+census_prediction1
+```
+
+```{r, include=FALSE}
+# Prediction for Conservatives
+clean_census_data$estimate_C <-
+  model_C %>%
+  predict(newdata = clean_census_data, type = "response")
+
+census_prediction2 <- clean_census_data %>%
+  mutate(C_predict_prop = estimate_C*n) %>%
+  summarise(C_predict = sum(C_predict_prop)/sum(n))
+census_prediction2
+```
+
+```{r}
+# Popular Rate Comparison Table
+popular_vote <- cbind(census_prediction1, census_prediction2)
+colnames(popular_vote) <- c("Liberals", "Conservatives")
+knitr::kable(popular_vote, caption = "Predicted Popular Vote Rate (Liberals v.s. Conservatives)", 
+             digits = 4, format = "markdown")
+```
+
+## Electoral Vote Prediction
+
+Referring to **Table 2 (Electoral Vote Rate)**, Liberals expects to have a 29.27% electoral vorte rate and Conservatives expects to have a 28.77% electoral vote rate. 
+
+```{r, include=FALSE}
+# Prediction for Liberals
+province_L <- clean_census_data %>%
+  mutate(L_predict_prop = estimate_L*n) %>%
+  group_by(province) %>%
+  summarise(Vote_L = sum(L_predict_prop)/sum(n))
+province_L
+
+# Electoral Rate
+Ele_province_L <- 0.1538*34 + 0.2690*42 + 0.2781*14 + 0.3442*10 + 0.4142*7 + 0.3826*11 + 0.3425*121 + 0.3846*4 + 0.2976*78 + 0.1275*14
+electoral_L <- Ele_province_L/338
+```
+
+```{r, include=FALSE}
+# Prediction for Conservatives
+province_C <-clean_census_data %>%
+  mutate(C_predict_prop = estimate_C*n) %>%
+  group_by(province) %>%
+  summarise(Vote_C = sum(C_predict_prop)/sum(n))
+province_C
+
+# Electoral Rate
+Ele_province_C <- 0.5670*34 + 0.2938*42 + 0.3841*14 + 0.2677*10 + 0.2162*7 + 0.1829*11 + 0.2843*121 + 0.1182*4 + 0.1564*78 + 0.4987*14
+electoral_C <- Ele_province_C/338
+```
+
+```{r}
+# Electoral Rate Comparison Table
+electoral_vote <- cbind(electoral_L, electoral_C)
+colnames(electoral_vote) <- c("Liberals", "Conservatives")
+knitr::kable(electoral_vote, caption = "Predicted Electoral Vote Rate (Liberals v.s. Conservatives)", 
+             digits = 4, format = "markdown")
+```
+
+## Logistic Regression Models
+
+According to the logistic regression, two fitted models are generated to predict Liberals and Conservatives' support rates, respectively. Referring to **Table 5 (Model for Liberals)** and **Table 6 (Model for Conservatives)** in the Appendix 7.6 and 7.7, most variables are statistically significant for the Liberals' model. However, some variables have relatively large P-value, such as gender, Saskatchewan province. According to the fitted model for Conservatives, almost all variables are statistically significant except for people who have primary education level. To predict the support rate for both political parties consistently, gender is kept in the final model, which has been sufficiently discussed before. 
+
+\newpage
+## Provincial Vote Rate
+
+
+```{r, include=FALSE}
+# Bar Plot for Liberals
+P1 <- ggplot(data = province_L, mapping = aes(x = reorder(province_L$province, -province_L$Vote_L),
+                                        province_L$Vote_L)) + 
+  geom_bar(stat = "identity", fill="steelblue") +
+  geom_text(aes(label=round(province_L$Vote_L, 2)), vjust=0.5, hjust = 1.2,color="white", size=3.0)+
+  theme_minimal()+ 
+  coord_flip()+
+  ggtitle("Provincial Vote Rate for Liberals") +
+  xlab("Provincial Vote Rate") + ylab("Provinces")
+P1
+
+# Bar Plots for Conservatives
+P2 <- ggplot(data = province_C, mapping = aes(x = reorder(province_C$province, -province_C$Vote_C),
+                                        province_C$Vote_C)) + 
+  geom_bar(stat = "identity", fill="steelblue") +
+  geom_text(aes(label=round(province_C$Vote_C, 2)), vjust=0.5, hjust = 1.2,color="white", size=3.0)+
+  theme_minimal()+ 
+  coord_flip()+
+  ggtitle("Provincial Vote Rate for Conservatives") +
+  xlab("Provincial Vote Rate") + ylab("Provinces")
+P2
+```
+
+```{r}
+# Combine two plots
+Plot_1 <- ggarrange(P1, P2, ncol = 1, nrow = 2)
+Plot_1
+```
+
+The provincial vote rates for both parties are calculated by applying post-stratification analysis within each province. According to two bar graphs, Liberals face the lowest vote rate in Saskatchewan and Alberta provinces. Conservatives face the lowest supporters in Prince Edward Island and Quebec. Analyzing the estimated supporting rate helps the parties arrange their election campaign more efficiently to gain higher odds of winning.
+
+\newpage
+# Discussion
+## Summary
+This study using two data sets, which contain the survey data and the census data. The survey data, Canadian Election Study, is obtained through the online survey and collects respondents' opinions on the 2019 Canadian Election. The census data, General Social Survey, uses the telephone interview to collect the responses, including solely demographic information.  
+
+To conduct the statistical analysis, six variables for survey data and eight variables for census data are selected and cleaned. This makes sure that the corresponding variables are consistent in both datasets. The logistic regression model, generated by using survey data, is used to assess each variable's impact on the dependent variable.  
+
+Based on the selected demographic characteristics, census data are divided into different cells to conduct further post-stratification analysis. The voting rate for both political parties is estimated within each cell. The population voting rate is calculated by considering the weight of each cell to the overall population. 
+
+Based on the results, Liberals are expected to gain a 30.18% popular support rate in the 2019 Canadian election if eligible residents all vote. Conservatives are expected to gain a 28.57% popular support rate, which is lower than the Liberals. The Liberals and the Conservatives are expected to gain a 29.27% electoral rate and a 28.77% electoral rate, respectively. 
+
+## Conclusion
+
+Referring to **Table 1 (Popular Vote Rate)** and **Table 2 (Electoral Vote Rate)**, Liberals are expected to have a 30.18% popular vote rate in the 2019 Canadian election, compared with the Conservatives' 28.57% popular vote rate. Therefore, based on the previous analysis and the database, Liberals are predicted to have a higher probability of winning the 2019 Canadian Election. 
+
+This electoral vote rate is consistent with the actual election that Liberals form the government. However, the popular vote rate is different from the actual result. In the 2019 Canadian Election, the Liberal has a 33.1% voting share, but the Conservative has a 34.4% voting share, which is slightly higher than the Liberal (CBC News, 2019).
+
+Some potential issues may lead to the popular vote rate's inconsistency between the actual results and the study's prediction. Firstly, it may be due to low voter participation. Only 77% of Canadians reported voting in the 2019 federal election (Government of Canada, 2020). This may cause a difference in popular vote rate since the prediction in this study is based on the assumption that all eligible Canadians will vote. Secondly, it may be due to the criticism of the election process in Canada. There is no requirement for an absolute majority; therefore, the popular rate is not the election's primary determination. This may discourage voters' enthusiasm to vote, leading to a different result from the study's analysis. 
+
+These predictions can be used to compare with the actual results and provide some warnings and hints for both parties. For Conservatives, though the real results demonstrate that it wins the popular vote, it should be cautious and alert because the census prediction shows that Liberals have a slightly leading popular rate. Additionally, its failure of the election is due to fewer seats in the House of Commons, resulting from a bad election campaign. Conservatives' votes may be more clustered than the Liberals, whose vote spreads widely and evenly (Brean, 2019). On the other hand, Liberals can use the prediction for different provinces to help them make revisions and to improve the popular vote rate in the upcoming election.
+
+\newpage
+## Weaknesses
+
+There is some weakness exist in the study. Firstly, some observations with missing values are removed before conducting the analysis. However, some useful information associated with the election prediction may be missed. For example, respondents who do not answer their gender as male or female are removed from the study, which may cause bias for the study results. Secondly, in this study, only 1084 demographic cells are created to conduct post-stratification analysis, which may not be sufficient to make an accurate estimation and thus constrains the prediction results. Thirdly, the overall study and prediction are made based on two datasets. The sampling method used for the survey and the respondents' incorrect information can lead to the bias of the prediction results. Finally, three provinces are not included in this study, which each has one seat in the House of Commons. The omission of these provinces may lead to the bias of the electoral rate prediction. 
+
+## Next Steps
+
+To improve the accuracy of predictions, the multilevel regression model can be considered as an alternative model. Using the BIC criteria, the model with the lowest BIC can be chosen to analyze further. In this study, three provinces are excluded from the electoral prediction. If the seats' difference is not large for Liberals and Conservatives, then these three provinces become essential. After getting enough census information about these provinces, a post-stratification analysis can be conducted. The prediction of the electoral rate will be more reliable. 
+
+By comparing the actual results and the prediction results, the cause of the difference can be further investigated, which helps to improve the model accuracy and the future election prediction. 
+
+
+\newpage
+
+# Appendix
+
+## Figure 1: Cleaned Raw Survey data
+
+```{r}
+visdat::vis_miss(survey_raw, sort_miss = TRUE, warn_large_data = F)
+```
+
+## Figure 2: Cleaned Raw Census data
+
+```{r}
+visdat::vis_dat(census_raw, warn_large_data = F)
+```
+
+## Figure 3: Cook's Distance Plots for Two Models
+
+```{r}
+par(mfrow=c(1,2))
+plot(model_L, which = 4, main="Liberals")
+plot(model_C, which = 4, main="Conservatives")
+```
+
+## Table 3: Multicollinearity Check for Liberals
+
+```{r}
+knitr::kable(vif(model_L), caption="VIFs for 6 Predictors (Liberals)", digits=3, format = "markdown")
+```
+
+\newpage
+## Table 4: Multicollinearity Check for Conservatives
+
+```{r}
+knitr::kable(vif(model_C), caption="VIFs for 6 Predictors (Conservatives)", digits=3, format = "markdown")
+```
+
+## Table 5: Model for Liberals 
+
+```{r}
+knitr::kable(summary(model_L)$coefficients, caption="Logit Regression for Liberals", digits=3, format = "markdown")
+```
+
+\newpage
+## Table 6: Model for Conservatives
+
+```{r}
+knitr::kable(summary(model_C)$coefficients, caption="Logit Regression for Conservatives", digits=3, format = "markdown")
+```
+
+\newpage
+
+# References
+
+```{r, include=FALSE}
+# Citation:
+citation("tidyverse")
+citation("ggplot2")
+citation("cesR")
+citation("visdat")
+citation("skimr")
+citation("ggpubr")
+citation("car")
+```
+
+1. Alboukadel Kassambara (2020). ggpubr: 'ggplot2' Based Publication Ready Plots. R package version 0.4.0. https://CRAN.R-project.org/package=ggpubr
+
+2. Brean, J. (2019, October 22). All-time low share of popular vote is enough for Liberals to win power. Retrieved December 22,2020, from https://nationalpost.com/news/politics/election-2019/canadian-federal-election-2019-liberals-justin-trudeau-win
+
+3. Breen, K. (2019, October 04). The 'genderation' gap: Political divisions exist between men, women, different age groups, polls show. Retrieved December 21, 2020, from https://globalnews.ca/news/5988160/genderation-gap-political-divisions-men-women/
+
+4. Caetano, S., &amp; Alexander, R. (2020, October 7). GSS Data Cleaning Code. Retrieved December 22, 2020, from https://q.utoronto.ca/courses/184060/files/9422740?module_item_id=1867317
+
+5. Canadian Election. (2020). Elections Step by Step. Retrieved December 09, 2020, from https://electionsanddemocracy.ca/canadas-elections/canadas-election-process/elections-step-step 
+
+6. CBC News. (2019). Federal election 2019 live results. Retrieved December 22, 2020, from https://newsinteractives.cbc.ca/elections/federal/2019/results/
+
+7. Cook, R. Dennis (February 1977). “Detection of Influential Observations in Linear Regression”. Technometrics (American Statistical Association)).
+
+8. Elections New Brunswick, C. (2014, December 11). Am I eligible to vote? Retrieved December 20, 2020, from https://www.electionsnb.ca/content/enb/en/voters/eligible.html
+
+9. Elin Waring, Michael Quinn, Amelia McNamara, Eduardo Arino de la Rubia, Hao Zhu and Shannon Ellis (2020). skimr: Compact and Flexible Summaries of Data. R package version 2.1.2. https://CRAN.R-project.org/package=skimr
+
+10. Government of Canada, S. (2017, May 08). Age Categories, Life Cycle Groupings. Retrieved December 20, 2020, from      https://www.statcan.gc.ca/eng/concepts/definitions/age2
+
+11. Government of Canada, S. (2020, February 26). Reasons for not voting in the federal election, October 21, 2019. Retrieved December 22, 2020, from https://www150.statcan.gc.ca/n1/daily-quotidien/200226/dq200226b-eng.htm
+
+12. H. Wickham. ggplot2: Elegant Graphics for Data Analysis. Springer-Verlag New York, 2016.
+
+13. Hatemi, P., McDermott, R., Bailey, J., & Martin, N. (2012). The Different Effects of Gender and Sex on Vote Choice. Political   Research Quarterly, 65(1), 76-92. Retrieved December 21, 2020, from http://www.jstor.org/stable/23209561
+
+14. John Fox and Sanford Weisberg (2019). An {R} Companion to Applied Regression, Third Edition. Thousand Oaks CA: Sage. URL: https://socialsciences.mcmaster.ca/jfox/Books/Companion/
+
+15. Little, R. J. A. (1993), “Post-Stratification: A Modeler’s Perspective,” Journal of the American Statistical Association, 88, 1001–1012.
+
+16. Maalouf, M. (2011). Logistic regression in data analysis: An overview. International Journal of Data Analysis Techniques and Strategies, 3(3), 281. doi:10.1504/ijdats.2011.041335
+
+17. Paul A. Hodgetts and Rohan Alexander (2020). cesR: Access the CES Datasets a Little Easier.. R package version 0.1.0.
+
+18. Stephenson, Laura B; Harell, Allison; Rubenson, Daniel; Loewen, Peter John, 2020, '2019 Canadian Election Study - Online Survey', https://doi.org/10.7910/DVN/DUS88V, Harvard Dataverse, V1
+
+19. Stephenson, Laura, Allison Harrel, Daniel Rubenson and Peter Loewen. Forthcoming. 'Measuring Preferences and Behaviour in the 2019 Canadian Election Study,' Canadian Journal of Political Science.
+
+20. Technology, Advancing Knowledge through. Computing in the Humanities and Social Sciences. www.chass.utoronto.ca/.
+
+21. Tierney N (2017). “visdat: Visualising Whole Data Frames.” _JOSS_, *2*(16), 355. doi: 10.21105/joss.00355 (URL: https://doi.org/10.21105/joss.00355), <URL: http://dx.doi.org/10.21105/joss.00355>.
+
+22. Wickham et al., (2019). Welcome to the tidyverse. Journal of Open Source Software, 4(43), 1686, https://doi.org/10.21105/joss.01686
+
+
+
+
+
